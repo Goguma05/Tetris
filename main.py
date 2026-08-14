@@ -76,18 +76,38 @@ def rotateBlock(Type, rotate):
 
     if rotate == 2:
         b = [[0 for _ in range(len(blocks[Type][0]))] for _ in range(len(blocks[Type]))]
-        for i in range(len(block) - 1, -1, -1):
-            for j in range(len(block[0]) - 1, -1, -1):
+        for i in range(len(blocks[Type]) - 1, -1, -1):
+            for j in range(len(blocks[Type][0]) - 1, -1, -1):
                 if blocks[Type][i][j] == 1:
                     b[len(blocks[Type]) - 1 - i][len(blocks[Type][0]) - 1 - j] = 1
 
     if rotate == 3:
         b = [[0 for _ in range(len(blocks[Type]))] for _ in range(len(blocks[Type][0]))]
-        for i in range(len(block[0]) - 1, -1, -1):
-            for j in range(len(block)):
+        for i in range(len(blocks[Type][0]) - 1, -1, -1):
+            for j in range(len(blocks[Type])):
                 if blocks[Type][j][i] == 1:
                     b[len(blocks[Type][0]) - 1 - i][j] = 1
     return b
+
+def eraseLine(c, s):
+    for i in range(s, c - 1, -1):
+        for j in range(len(map[0])):
+            map[i][j] = map[i - c][j]
+
+    for i in range(c):
+        for j in range(len(map[0])):
+            map[i][j] = 0
+
+def complete():
+    rowCount = 0
+    startIdx = 0
+    for y in range(len(map)-1, -1, -1):
+        if isLine(y):
+            rowCount += 1
+            if startIdx < y:
+                startIdx = y
+    if rowCount != 0:
+        eraseLine(rowCount, startIdx)
 
 def isCollision(block, pos):
     hit = []
@@ -113,6 +133,12 @@ def isLeftWall(block, pos):
         return False
     return True
 
+def isLine(y):
+    for i in range(len(map[0])):
+        if map[y][i] == 0:
+            return False
+    return True
+
 Type = random.randint(1,7)
 
 curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
@@ -121,6 +147,8 @@ curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 while isRunning:
     if curr['pos'][1] + len(curr['block']) == 16 or isCollision(curr['block'], curr['pos']):
         drawBlock(curr['block'], curr['pos'])
+        complete()
+
         Type = random.randint(1,7)
         curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
@@ -156,7 +184,7 @@ while isRunning:
                 curr['block'] = rotateBlock(Type, curr['rotate'])
 
             elif key == '\x1b[B': # 아래쪽 빠르게
-                pass
+                curr['pos'][1] += 1
             
             # 이동 후 다시 그리고 출력
             drawBlock(curr['block'], curr['pos'])
@@ -168,9 +196,8 @@ while isRunning:
     eraseBlock(curr['block'], curr['pos'])
     curr['pos'][1] += 1
 
-# 1. 로테이션 후 바닥과 벽 충돌 계산
-# 2. 아래키 완성
-# 3. 완성된 줄 감지와 삭제
+# 아래키 기능
+# 벽 쪽에서 회전
 # 4. 게임 오버
 # 5. 점수 출력
 # 6. 난이도 조정
