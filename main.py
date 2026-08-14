@@ -48,45 +48,46 @@ def mapPrint():
     for _ in range(2):
         print()
 
-def drawBlock(block, pos, rotate):
-    if rotate == 0:
-        for i in range(len(block)):
-            for j in range(len(block[0])):
-                if block[i][j] == 1:
-                    map[pos[1] + i][pos[0] + j] = block[i][j]
-    if rotate == 1:
-        for i in range(len(block[0])):
-            for j in range(len(block) - 1, -1, -1):
-                if block[j][i] == 1:
-                    map[pos[1] + i][pos[0] + j] = block[j][i]
-    if rotate == 2:
-        for i in range(len(block) - 1, -1, -1):
-            for j in range(len(block[0]) - 1, -1, -1):
-                if block[i][j] == 1:
-                    map[pos[1] + 1 - i][pos[0] + j] = block[i][j]
-    if rotate == 3:
-        for i in range(len(block[0])):
-            for j in range(len(block)):
-                if block[j][i] == 1:
-                    map[pos[1] + i][pos[0] + j] = block[j][i]
+def drawBlock(block, pos):
+    for i in range(len(block)):
+        for j in range(len(block[0])):
+            if block[i][j] == 1:
+                map[pos[1] + i][pos[0] + j] = block[i][j]
 
-def eraseBlock(block, pos, rotate):
+def eraseBlock(block, pos):
+    for i in range(len(block)):
+        for j in range(len(block[0])):
+            map[pos[1] + i][pos[0] + j] = 0
+
+def rotateBlock(Type, rotate):
     if rotate == 0:
-        for i in range(len(block)):
-            for j in range(len(block[0])):
-                map[pos[1] + i][pos[0] + j] = 0
+        b = [[0 for _ in range(len(blocks[Type][0]))] for _ in range(len(blocks[Type]))]
+        for i in range(len(blocks[Type])):
+            for j in range(len(blocks[Type][0])):
+                if blocks[Type][i][j] == 1:
+                    b[i][j] = 1
+                
     if rotate == 1:
-        for i in range(len(block[0])):
-            for j in range(len(block) - 1, -1, -1):
-                map[pos[1] + i][pos[0] + j] = 0
+        b = [[0 for _ in range(len(blocks[Type]))] for _ in range(len(blocks[Type][0]))]
+        for i in range(len(blocks[Type][0])):
+            for j in range(len(blocks[Type]) - 1, -1, -1):
+                if blocks[Type][j][i] == 1:
+                    b[i][len(blocks[Type]) - 1 - j] = 1
+
     if rotate == 2:
+        b = [[0 for _ in range(len(blocks[Type][0]))] for _ in range(len(blocks[Type]))]
         for i in range(len(block) - 1, -1, -1):
             for j in range(len(block[0]) - 1, -1, -1):
-                map[pos[1] + 1 - i][pos[0] + j] = 0
+                if blocks[Type][i][j] == 1:
+                    b[len(blocks[Type]) - 1 - i][len(blocks[Type][0]) - 1 - j] = 1
+
     if rotate == 3:
-        for i in range(len(block[0])):
+        b = [[0 for _ in range(len(blocks[Type]))] for _ in range(len(blocks[Type][0]))]
+        for i in range(len(block[0]) - 1, -1, -1):
             for j in range(len(block)):
-                map[pos[1] + i][pos[0] + j] = 0
+                if blocks[Type][j][i] == 1:
+                    b[len(blocks[Type][0]) - 1 - i][j] = 1
+    return b
 
 def isCollision(block, pos):
     hit = []
@@ -112,16 +113,19 @@ def isLeftWall(block, pos):
         return False
     return True
 
-curr = {'block' : blocks[random.randint(1,7)], 'pos' : [3, 0], 'rotate' : 0}
+Type = random.randint(1,7)
+
+curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
 
 while isRunning:
     if curr['pos'][1] + len(curr['block']) == 16 or isCollision(curr['block'], curr['pos']):
-        drawBlock(curr['block'], curr['pos'], curr['rotate'])
-        curr = {'block' : blocks[random.randint(1,7)], 'pos' : [3, 0], 'rotate' : 0}
+        drawBlock(curr['block'], curr['pos'])
+        Type = random.randint(1,7)
+        curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
     # 1. 현재 위치에 블록 그리기 및 출력
-    drawBlock(curr['block'], curr['pos'], curr['rotate'])
+    drawBlock(curr['block'], curr['pos'])
     mapPrint()
 
     # 2. 1초 동안 0.05초 간격으로 키 입력을 반복 감지
@@ -137,7 +141,7 @@ while isRunning:
                 break
             
             # 기존 위치 지우기
-            eraseBlock(curr['block'], curr['pos'], curr['rotate'])
+            eraseBlock(curr['block'], curr['pos'])
             
             if key == '\x1b[C': # 오른쪽
                 if isRightWall(curr['block'], curr['pos']):
@@ -149,17 +153,19 @@ while isRunning:
                 curr['rotate'] += 1
                 if curr['rotate'] > 3:
                     curr['rotate'] = 0
+                curr['block'] = rotateBlock(Type, curr['rotate'])
+
             elif key == '\x1b[B': # 아래쪽 빠르게
                 pass
             
             # 이동 후 다시 그리고 출력
-            drawBlock(curr['block'], curr['pos'], curr['rotate'])
+            drawBlock(curr['block'], curr['pos'])
             mapPrint()
             
         time.sleep(0.05)
 
     # 3. 1초 경과 후 아래로 한 칸 떨어뜨리기
-    eraseBlock(curr['block'], curr['pos'], curr['rotate'])
+    eraseBlock(curr['block'], curr['pos'])
     curr['pos'][1] += 1
 
 # 1. 로테이션 후 바닥과 벽 충돌 계산
