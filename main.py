@@ -2,9 +2,12 @@ import time
 import random
 from sshkeyboard import listen_keyboard, stop_listening
 
-isRunning = True
-map = [[0 for _ in range(8)] for _ in range(16)]
+score = 0
 
+isRunning = True
+isDown = False
+
+map = [[0 for _ in range(8)] for _ in range(16)]
 blocks = {
     1 : [[1,1,1,1]], # I
     2 : [[1,1],      # O
@@ -25,8 +28,9 @@ Type = random.randint(1, 7)
 curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
 def mapPrint():
-    for _ in range(3):
-        print()
+    print()
+    print(f"점수 : {score}")
+    print()
     for p in map:
         print(p)
     for _ in range(2):
@@ -85,6 +89,7 @@ def eraseLine(c, s):
             map[i][j] = 0
 
 def complete():
+    global score
     rowCount = 0
     startIdx = 0
     for y in range(len(map)-1, -1, -1):
@@ -94,29 +99,15 @@ def complete():
                 startIdx = y
     if rowCount != 0:
         eraseLine(rowCount, startIdx)
+        score += 100 * rowCount
 
 def downBlock(block, pos):
-    hit = []
-    for i in range(len(block[0])):
-        Max = 0
-        for j in range(len(block)):
-            if block[j][i] == 1:
-                Max = j
-        hit.append(Max)
-
-    y = pos[1]
-
-    while y < 15 - len(block):
-        for i in range(len(hit)):
-            if map[y + hit[i] + 1][pos[0] + i] == 1:
-                curr['pos'][1] = y
-                return
-        if y == 14 - len(block):
-            curr['pos'][1] = y + 1
-            return
-        y += 1
+    while not isCollision(block, pos):
+        pos[1] += 1
 
 def isCollision(block, pos):
+    if pos[1] >= 16 - len(block):
+        return True
     hit = []
     for i in range(len(block[0])):
         Max = 0
@@ -126,7 +117,7 @@ def isCollision(block, pos):
         hit.append(Max)
     
     for i in range(len(hit)):
-        if map[pos[1] + hit[i] + 1][pos[0] + i] == 1:
+        if map[pos[1] + hit[i] + 1][pos[0] + i]:
             return True
     return False
 
@@ -153,9 +144,6 @@ def isOver(block, pos):
                 return True
     return False
 
-isDown = False
-
-# 키 입력 이벤트 처리 함수
 def on_press(key):
     global isRunning, curr, Type, isDown
     if not isRunning:
@@ -210,7 +198,7 @@ try:
         drawBlock(curr['block'], curr['pos'])
         mapPrint()
 
-        time.sleep(0.8)
+        time.sleep(1)
 
         # 아래로 한 칸 떨어뜨리기
         if not isDown:
