@@ -1,32 +1,13 @@
-import time, random
-import sys, tty, termios, select
-
-# 논블로킹 키 입력을 위한 함수
-def getch():
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    ch = None
-    try:
-        # 터미널을 raw 모드로 전환 (엔터 없이 즉시 입력 받기 위함)
-        tty.setraw(fd)
-        
-        # select를 이용해 입력이 있는지 0.01초 동안 대기
-        rlist, _, _ = select.select([sys.stdin], [], [], 1)
-        if rlist:
-            ch = sys.stdin.read(1)
-            # ESC 문자(\x1b)인 경우 뒤에 오는 방향키 코드 2바이트를 마저 읽음
-            if ch == '\x1b':
-                ch += sys.stdin.read(2)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
+import time
+import random
+from sshkeyboard import listen_keyboard, stop_listening
 
 isRunning = True
 map = [[0 for _ in range(8)] for _ in range(16)]
 
 blocks = {
     1 : [[1,1,1,1]], # I
-    2 : [[1,1],      # o
+    2 : [[1,1],      # O
          [1,1]],
     3 : [[1,1,1],    # T
          [0,1,0]],
@@ -39,6 +20,9 @@ blocks = {
     7 : [[0,1,1],    # S
          [1,1,0]]
 }
+
+Type = random.randint(1, 7)
+curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
 def mapPrint():
     for _ in range(3):
@@ -129,7 +113,7 @@ def downBlock(block, pos):
                 return
         if y == 14 - len(block):
             curr['pos'][1] = y + 1
-            break
+            return
         y += 1
 
 def isCollision(block, pos):
@@ -162,67 +146,75 @@ def isLine(y):
             return False
     return True
 
-Type = random.randint(1,7)
+def isOver(block, pos):
+    for i in range(len(block)):
+        for j in range(len(block[0])):
+            if map[pos[1] + i][pos[0] + j] == 1:
+                return True
+    return False
 
-curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
+isDown = False
 
+# 키 입력 이벤트 처리 함수
+def on_press(key):
+    global isRunning, curr, Type, isDown
+    if not isRunning:
+        return
 
-while isRunning:
-    isDown = False
+    eraseBlock(curr['block'], curr['pos'])
 
-    if curr['pos'][1] + len(curr['block']) == 16 or isCollision(curr['block'], curr['pos']):
-        drawBlock(curr['block'], curr['pos'])
-        complete()
+    if key == "q":
+        print('게임을 종료합니다.')
+        isRunning = False
+        stop_listening()
+    elif key == "right" and isRightWall(curr['block'], curr['pos']):
+        curr['pos'][0] += 1
+    elif key == "left" and isLeftWall(curr['block'], curr['pos']):
+        curr['pos'][0] -= 1 
+    elif key == "up":
+        curr['rotate'] += 1
+        if curr['rotate'] > 3:
+            curr['rotate'] = 0
+        curr['block'] = rotateBlock(Type, curr['pos'], curr['rotate'])
+    elif key == "down":
+        downBlock(curr['block'], curr['pos'])
+        isDown = True
 
-        Type = random.randint(1,7)
-        curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
-
-    # 1. 현재 위치에 블록 그리기 및 출력
     drawBlock(curr['block'], curr['pos'])
     mapPrint()
 
-    # 2. 1초 동안 0.05초 간격으로 키 입력을 반복 감지
-    start_time = time.time()
-    while time.time() - start_time < 0.8:
-        key = getch()
-        
-        if key is not None:
-            # ESC 종료
-            if key == 27:
-                print("게임을 종료합니다.")
+import threading
+
+# 백그라운드에서 키 입력을 감지하도록 스레드 분기
+def start_listener():
+    listen_keyboard(on_press=on_press)
+
+listener_thread = threading.Thread(target=start_listener, daemon=True)
+listener_thread.start()
+
+# 메인 게임 루프
+try:
+    while isRunning:
+        isDown = False
+        if curr['pos'][1] + len(curr['block']) == 16 or isCollision(curr['block'], curr['pos']):
+            drawBlock(curr['block'], curr['pos'])
+            complete()
+
+            Type = random.randint(1, 7)
+            curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
+            if isOver(curr['block'], curr['pos']):
+                print("게임 오버")
                 isRunning = False
                 break
-            
+
+        drawBlock(curr['block'], curr['pos'])
+        mapPrint()
+
+        time.sleep(0.8)
+
+        # 아래로 한 칸 떨어뜨리기
+        if not isDown:
             eraseBlock(curr['block'], curr['pos'])
-            
-            if key == '\x1b[C':
-                if isRightWall(curr['block'], curr['pos']):
-                    curr['pos'][0] += 1
-
-            elif key == '\x1b[D':
-                if isLeftWall(curr['block'], curr['pos']):
-                    curr['pos'][0] -= 1
-
-            elif key == '\x1b[A':
-                curr['rotate'] += 1
-                if curr['rotate'] > 3:
-                    curr['rotate'] = 0
-                curr['block'] = rotateBlock(Type, curr['pos'], curr['rotate'])
-
-            elif key == '\x1b[B':
-                downBlock(curr['block'], curr['pos'])  
-                isDown = True
-            
-            drawBlock(curr['block'], curr['pos'])
-            mapPrint()
-            
-        time.sleep(0.05)
-
-    # 3. 1초 경과 후 아래로 한 칸 떨어뜨리기
-    if not isDown:
-        eraseBlock(curr['block'], curr['pos'])
-        curr['pos'][1] += 1
-
-# 4. 게임 오버
-# 5. 점수 출력
-# 6. 난이도 조정
+            curr['pos'][1] += 1
+finally:
+    stop_listening()
