@@ -59,7 +59,7 @@ def eraseBlock(block, pos):
         for j in range(len(block[0])):
             map[pos[1] + i][pos[0] + j] = 0
 
-def rotateBlock(Type, rotate):
+def rotateBlock(Type, pos, rotate):
     if rotate == 0:
         b = [[0 for _ in range(len(blocks[Type][0]))] for _ in range(len(blocks[Type]))]
         for i in range(len(blocks[Type])):
@@ -87,6 +87,8 @@ def rotateBlock(Type, rotate):
             for j in range(len(blocks[Type])):
                 if blocks[Type][j][i] == 1:
                     b[len(blocks[Type][0]) - 1 - i][j] = 1
+    if pos[0] + len(b[0]) > 8:
+        pos[0] = 8 - len(b[0])
     return b
 
 def eraseLine(c, s):
@@ -108,6 +110,27 @@ def complete():
                 startIdx = y
     if rowCount != 0:
         eraseLine(rowCount, startIdx)
+
+def downBlock(block, pos):
+    hit = []
+    for i in range(len(block[0])):
+        Max = 0
+        for j in range(len(block)):
+            if block[j][i] == 1:
+                Max = j
+        hit.append(Max)
+
+    y = pos[1]
+
+    while y < 15 - len(block):
+        for i in range(len(hit)):
+            if map[y + hit[i] + 1][pos[0] + i] == 1:
+                curr['pos'][1] = y
+                return
+        if y == 14 - len(block):
+            curr['pos'][1] = y + 1
+            break
+        y += 1
 
 def isCollision(block, pos):
     hit = []
@@ -145,6 +168,8 @@ curr = {'block' : blocks[Type], 'pos' : [3, 0], 'rotate' : 0}
 
 
 while isRunning:
+    isDown = False
+
     if curr['pos'][1] + len(curr['block']) == 16 or isCollision(curr['block'], curr['pos']):
         drawBlock(curr['block'], curr['pos'])
         complete()
@@ -168,36 +193,36 @@ while isRunning:
                 isRunning = False
                 break
             
-            # 기존 위치 지우기
             eraseBlock(curr['block'], curr['pos'])
             
-            if key == '\x1b[C': # 오른쪽
+            if key == '\x1b[C':
                 if isRightWall(curr['block'], curr['pos']):
                     curr['pos'][0] += 1
-            elif key == '\x1b[D': # 왼쪽
+
+            elif key == '\x1b[D':
                 if isLeftWall(curr['block'], curr['pos']):
                     curr['pos'][0] -= 1
-            elif key == '\x1b[A': # 위쪽
+
+            elif key == '\x1b[A':
                 curr['rotate'] += 1
                 if curr['rotate'] > 3:
                     curr['rotate'] = 0
-                curr['block'] = rotateBlock(Type, curr['rotate'])
+                curr['block'] = rotateBlock(Type, curr['pos'], curr['rotate'])
 
-            elif key == '\x1b[B': # 아래쪽 빠르게
-                curr['pos'][1] += 1
+            elif key == '\x1b[B':
+                downBlock(curr['block'], curr['pos'])  
+                isDown = True
             
-            # 이동 후 다시 그리고 출력
             drawBlock(curr['block'], curr['pos'])
             mapPrint()
             
         time.sleep(0.05)
 
     # 3. 1초 경과 후 아래로 한 칸 떨어뜨리기
-    eraseBlock(curr['block'], curr['pos'])
-    curr['pos'][1] += 1
+    if not isDown:
+        eraseBlock(curr['block'], curr['pos'])
+        curr['pos'][1] += 1
 
-# 아래키 기능
-# 벽 쪽에서 회전
 # 4. 게임 오버
 # 5. 점수 출력
 # 6. 난이도 조정
